@@ -1,8 +1,8 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton, QComboBox, QDesktopWidget
-from PyQt5.QtGui import QPixmap, QIcon
+import subprocess
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QComboBox, QPushButton, QLabel
+from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtCore import QTimer, Qt
-from PyQt5.QtGui import QScreen, QGuiApplication
 
 class ScreenRecorder(QWidget):
     def __init__(self):
@@ -15,10 +15,10 @@ class ScreenRecorder(QWidget):
 
         self.layout = QVBoxLayout()
 
-        # 화면 선택 콤보박스 생성
-        self.screen_combo = QComboBox(self)
-        self.screen_combo.addItem("Select a Screen")
-        self.layout.addWidget(self.screen_combo)
+        # 창 선택 콤보박스 생성
+        self.window_combo = QComboBox(self)
+        self.window_combo.addItem("Select a Window")
+        self.layout.addWidget(self.window_combo)
 
         # 시작 및 정지 버튼
         self.start_button = QPushButton("Start Recording", self)
@@ -34,43 +34,69 @@ class ScreenRecorder(QWidget):
         self.screen_label = QLabel(self)
         self.layout.addWidget(self.screen_label)
 
+        # 창 목록 업데이트 버튼
+        self.update_button = QPushButton("Update Window List", self)
+        self.layout.addWidget(self.update_button)
+
         self.setLayout(self.layout)
 
         # 버튼 연결
         self.start_button.clicked.connect(self.start_recording)
         self.stop_button.clicked.connect(self.stop_recording)
+        self.update_button.clicked.connect(self.update_window_list)
 
         # 타이머 초기화
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.capture_screen)
 
-        # 열린 화면 목록 업데이트
-        self.update_screen_list()
-
         self.setGeometry(100, 100, 800, 600)
         self.show()
 
-    def update_screen_list(self):
-        # 열린 화면 목록 업데이트
-        self.screen_combo.clear()
-        self.screen_combo.addItem("Select a Screen")
+    def update_window_list(self):
+        # 창 목록 업데이트
+        self.window_combo.clear()
+        self.window_combo.addItem("Select a Window")
 
-        desktop = QDesktopWidget()
-        for i in range(desktop.screenCount()):
-            screen_rect = desktop.screenGeometry(i)
-            self.screen_combo.addItem(f"Screen {i+1}", userData=screen_rect)
+        # AppleScript를 사용하여 열린 창의 목록 가져오기
+        script = """
+        tell application "System Events"
+            set windowList to {}
+            repeat with proc in processes
+                tell proc
+                    repeat with win in windows
+                        set end of windowList to name of proc & ":" & title of win
+                    end repeat
+                end tell
+            end repeat
+            return windowList
+        end tell
+        """
+        applescript = subprocess.Popen(['osascript', '-'],
+                                       stdin=subprocess.PIPE,
+                                       stdout=subprocess.PIPE,
+                                       stderr=subprocess.PIPE,
+                                       universal_newlines=True)
+        stdout, stderr = applescript.communicate(script)
+        
+        if applescript.returncode == 0:
+            window_list = stdout.strip().split(',')
+            for window_info in window_list:
+                try:
+                    name, title = window_info.split(':')
+                    self.window_combo.addItem(f"{name.strip()}: {title.strip()}")
+                except ValueError:
+                    # Splitting failed, handle the error (e.g., print warning)
+                    print(f"Error parsing window info: {window_info}")
 
     def start_recording(self):
         self.start_button.setEnabled(False)
         self.stop_button.setEnabled(True)
 
-        # 선택된 화면 객체 가져오기
-        selected_screen = self.screen_combo.currentData()
+        # 선택된 창 객체 가져오기
+        selected_window_text = self.window_combo.currentText()
+        selected_window_name = selected_window_text.split(":")[0].strip()
 
-        if selected_screen:
-            self.timer.start(1000)  # 1초마다 캡처
-        else:
-            self.stop_recording()
+        # TODO: 선택된 창을 녹화하는 코드 작성
 
     def stop_recording(self):
         self.start_button.setEnabled(True)
@@ -78,18 +104,11 @@ class ScreenRecorder(QWidget):
         self.timer.stop()
 
     def capture_screen(self):
-        # 선택된 화면 객체 가져오기
-        selected_screen = self.screen_combo.currentData()
+        # 선택된 창 객체 가져오기
+        selected_window_text = self.window_combo.currentText()
+        selected_window_name = selected_window_text.split(":")[0].strip()
 
-        if selected_screen:
-            # 화면의 스크린샷 찍기
-            screen = QGuiApplication.primaryScreen().grabWindow(0,
-                                        selected_screen.x(), selected_screen.y(),
-                                        selected_screen.width(), selected_screen.height())
-            self.screen_label.setPixmap(screen)
-            self.screen_label.setAlignment(Qt.AlignCenter)
-        else:
-            self.stop_recording()
+        # TODO: 선택된 창의 스크린샷을 캡처하고 표시하는 코드 작성
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
