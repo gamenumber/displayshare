@@ -30,9 +30,10 @@ class ScreenRecorder(QWidget):
         button_layout.addWidget(self.stop_button)
         self.layout.addLayout(button_layout)
 
-        # 화면 표시 라벨
-        self.screen_label = QLabel(self)
-        self.layout.addWidget(self.screen_label)
+        # 녹화 상태 표시 라벨
+        self.recording_label = QLabel("Not Recording", self)
+        self.recording_label.setAlignment(Qt.AlignCenter)
+        self.layout.addWidget(self.recording_label)
 
         # 창 목록 업데이트 버튼
         self.update_button = QPushButton("Update Window List", self)
@@ -91,6 +92,7 @@ class ScreenRecorder(QWidget):
     def start_recording(self):
         self.start_button.setEnabled(False)
         self.stop_button.setEnabled(True)
+        self.recording_label.setText("Recording...")  # 녹화 중임을 표시하는 레이블 변경
 
         # 선택된 창 객체 가져오기
         selected_window_text = self.window_combo.currentText()
@@ -98,9 +100,13 @@ class ScreenRecorder(QWidget):
 
         # TODO: 선택된 창을 녹화하는 코드 작성
 
+        # 타이머 시작
+        self.timer.start(1000)  # 1초마다 capture_screen 메서드 호출
+
     def stop_recording(self):
         self.start_button.setEnabled(True)
         self.stop_button.setEnabled(False)
+        self.recording_label.setText("Not Recording")  # 녹화 중이 아님을 표시하는 레이블 변경
         self.timer.stop()
 
     def capture_screen(self):
