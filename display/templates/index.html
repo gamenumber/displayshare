@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Screen Sharing</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.js"></script>
+    <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+</head>
+<body>
+    <h1>Screen Sharing</h1>
+    <button id="start-share">Start Sharing</button>
+    <button id="stop-share">Stop Sharing</button>
+    <div id="remote-video-container"></div>
+
+    <canvas id="canvas" width="640" height="480" style="border: 1px solid black;"></canvas>
+
+    <script>
+        const socket = io();
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        let localStream;
+
+        async function startScreenShare() {
+            try {
+                localStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+
+                // Display screen share on canvas
+                const videoTrack = localStream.getVideoTracks()[0];
+                const stream = new MediaStream([videoTrack]);
+                const video = document.createElement('video');
+                video.srcObject = stream;
+                video.play();
+
+                video.addEventListener('loadedmetadata', () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    drawVideoOnCanvas(video);
+                });
+
+                socket.emit('screen_share_start');
+            } catch (error) {
+                console.error('Error starting screen share:', error);
+            }
+        }
+
+        function stopScreenShare() {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                socket.emit('screen_share_stop');
+                clearCanvas();
+            }
+        }
+
+        function drawVideoOnCanvas(video) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            requestAnimationFrame(() => drawVideoOnCanvas(video));
+        }
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        document.getElementById('start-share').addEventListener('click', startScreenShare);
+        document.getElementById('stop-share').addEventListener('click', stopScreenShare);
+
+        socket.on('screen_share_start', () => {
+            document.getElementById('remote-video-container').style.display = 'none'; // Hide remote video container
+            canvas.style.display = 'block'; // Show canvas
+        });
+
+        socket.on('screen_share_stop', () => {
+            canvas.style.display = 'none'; // Hide canvas
+            document.getElementById('remote-video-container').style.display = 'block'; // Show remote video container
+        });
+    </script>
+</body>
+</html>
